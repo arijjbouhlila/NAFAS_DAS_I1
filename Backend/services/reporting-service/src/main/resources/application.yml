@@ -1,0 +1,34 @@
+server:
+  port: 8085
+  error:
+    include-message: always
+spring:
+  application:
+    name: reporting-service        # name used later for Eureka registration
+  # Default = in-memory H2 so it runs with zero setup.
+  # Use the "postgres" profile for PostgreSQL (see application-postgres.yml).
+  datasource:
+    url: jdbc:h2:mem:reporting;DB_CLOSE_DELAY=-1
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  h2:
+    console:
+      enabled: true
+nafas:
+  upload-dir: uploads
+  seed-demo-data: true      # sample reports at startup (set false to disable)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+springdoc:
+  swagger-ui:
+    operations-sorter: method
+    tags-sorter: alpha

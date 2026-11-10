@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAFAS Reporting Console</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root { --bg:#f3f6f5; --card:#fff; --ink:#18282a; --muted:#64767a; --line:#dbe4e3; --brand:#0f766e; --brand-d:#0b5a54;
+          --warn:#b45309; --ok:#15803d; --bad:#b91c1c; --field:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0e1617; --card:#162224; --ink:#e4efee; --muted:#8aa1a4; --line:#27393b; --brand:#14b8a6; --brand-d:#0f9488;
+            --warn:#f59e0b; --ok:#22c55e; --bad:#f87171; --field:#0e1617; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:#0f766e; color:#fff; padding:12px 20px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+  header h1 { font-size:17px; margin:0; } header h1 span { opacity:.75; font-weight:400; }
+  .hr { display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:13px; }
+  header a { color:#fff; text-decoration:none; border-bottom:1px solid rgba(255,255,255,.5); }
+  header select { width:auto; padding:5px 8px; }
+  .wrap { max-width:1250px; margin:0 auto; padding:16px; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .stat b { display:block; font-size:26px; } .stat span { font-size:12px; color:var(--muted); }
+  .grid { display:grid; grid-template-columns:380px 1fr; gap:16px; align-items:start; }
+  @media (max-width:900px) { .grid { grid-template-columns:1fr; } .stats { grid-template-columns:repeat(2,1fr); } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:16px; }
+  .card h2 { margin:0 0 10px; font-size:15px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:9px 0 3px; }
+  input, select, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; background:var(--field); color:var(--ink); }
+  textarea { resize:vertical; min-height:70px; }
+  .row { display:flex; gap:8px; } .row > * { flex:1; }
+  button { font:inherit; cursor:pointer; border:0; border-radius:6px; padding:8px 12px; background:var(--brand); color:#fff; }
+  button:hover { background:var(--brand-d); }
+  button.ghost { background:transparent; color:var(--brand); border:1px solid var(--brand); }
+  button.ok { background:var(--ok); } button.bad { background:var(--bad); }
+  button.sm { padding:4px 9px; font-size:12px; }
+  #map { height:260px; border-radius:8px; border:1px solid var(--line); margin-top:8px; background:var(--bg); }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+  .filters { display:flex; gap:8px; margin-bottom:12px; align-items:center; } .filters select { width:auto; }
+  .report { border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; display:grid; grid-template-columns:84px 1fr; gap:12px; }
+  .thumb { width:84px; height:84px; border-radius:6px; background:var(--bg); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px; overflow:hidden; }
+  .thumb img { width:100%; height:100%; object-fit:cover; cursor:zoom-in; }
+  .report h3 { margin:0 0 4px; font-size:15px; } .report p { margin:4px 0; font-size:14px; }
+  .meta { font-size:12px; color:var(--muted); }
+  .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:99px; color:#fff; margin-left:6px; vertical-align:middle; }
+  .badge.SUBMITTED { background:var(--warn); } .badge.VALIDATED { background:var(--ok); } .badge.REJECTED { background:var(--bad); }
+  .cat { background:var(--bg); border:1px solid var(--line); color:var(--ink); }
+  .note { font-size:12px; border-left:3px solid var(--brand); padding-left:8px; margin:6px 0; color:var(--muted); }
+  .actions { display:flex; gap:6px; margin-top:8px; }
+  .empty { text-align:center; color:var(--muted); padding:24px; }
+  details summary { cursor:pointer; font-weight:600; font-size:15px; }
+  #log { max-height:300px; overflow:auto; font:12px ui-monospace,Consolas,monospace; margin-top:10px; }
+  .entry { border-bottom:1px solid var(--line); padding:6px 0; white-space:pre-wrap; word-break:break-all; }
+  .entry .s2 { color:var(--ok); } .entry .s4 { color:var(--bad); }
+  #toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#1f2937; color:#fff; padding:10px 16px; border-radius:8px; font-size:14px; display:none; max-width:90vw; z-index:9999; }
+  #toast.err { background:var(--bad); }
+  #lightbox { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:center; justify-content:center; z-index:9998; cursor:zoom-out; }
+  #lightbox img { max-width:92vw; max-height:92vh; border-radius:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>NAFAS <span>· Reporting Service console</span></h1>
+  <div class="hr">
+    <a href="/swagger-ui.html" target="_blank">Swagger UI</a>
+    <a href="/v3/api-docs" target="_blank">OpenAPI JSON</a>
+    <a href="/actuator/health" target="_blank">Health</a>
+    <button class="sm ghost" style="color:#fff;border-color:#fff" id="ping">GET /hello</button>
+    <label style="margin:0;color:#fff">Acting as</label>
+    <select id="role"><option value="CITIZEN">Citizen</option><option value="ADMIN">Administrator</option></select>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stats" id="stats">
+    <div class="stat"><b id="s-TOTAL">–</b><span>Total reports</span></div>
+    <div class="stat"><b id="s-SUBMITTED">–</b><span>Submitted</span></div>
+    <div class="stat"><b id="s-VALIDATED">–</b><span>Validated</span></div>
+    <div class="stat"><b id="s-REJECTED">–</b><span>Rejected</span></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <form class="card" id="form">
+        <h2>Submit a report</h2>
+        <label>Your name</label><input id="reporter" maxlength="80" placeholder="Ali">
+        <label>Title *</label><input id="title" required maxlength="120" placeholder="Black smoke near the factory">
+        <label>Category *</label>
+        <select id="category"><option>AIR</option><option>WATER</option><option>WASTE</option><option>NOISE</option><option>OTHER</option></select>
+        <label>Description *</label><textarea id="description" required maxlength="1000"></textarea>
+        <div class="row">
+          <div><label>Latitude *</label><input id="lat" type="number" step="any" required value="33.8815"></div>
+          <div><label>Longitude *</label><input id="lng" type="number" step="any" required value="10.0982"></div>
+        </div>
+        <div id="map"></div>
+        <div class="hint">Click the map to set the location. <a href="#" id="geo">Use my position</a></div>
+        <label>Photo (JPEG/PNG, max 5 MB)</label><input id="photo" type="file" accept="image/jpeg,image/png">
+        <div style="margin-top:12px"><button type="submit">Submit report</button></div>
+      </form>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>Reports</h2>
+        <div class="filters">
+          <select id="f-status"><option value="">All statuses</option><option>SUBMITTED</option><option>VALIDATED</option><option>REJECTED</option></select>
+          <select id="f-cat"><option value="">All categories</option><option>AIR</option><option>WATER</option><option>WASTE</option><option>NOISE</option><option>OTHER</option></select>
+          <button class="ghost sm" id="refresh">Refresh</button>
+          <span class="meta" id="count"></span>
+        </div>
+        <div id="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <details open>
+      <summary>API log (every request this page sends)</summary>
+      <div id="log"></div>
+    </details>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="lightbox"><img alt=""></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let role = 'CITIZEN';
+try { role = localStorage.getItem('role') || 'CITIZEN'; } catch (e) {}
+$('#role').value = role;
+
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = 'none', 3500);
+}
+
+function addLog(method, url, status, data, ms) {
+  const d = document.createElement('div'); d.className = 'entry';
+  let body = typeof data === 'string' ? data : JSON.stringify(data, null, 1);
+  if (body && body.length > 600) body = body.slice(0, 600) + ' …';
+  d.innerHTML = `<b>${esc(method)} ${esc(url)}</b> <span class="s${String(status)[0]}">→ ${status}</span> <span class="meta">${ms} ms · as ${role}</span>\n${esc(body || '')}`;
+  const box = $('#log'); box.prepend(d);
+  while (box.children.length > 30) box.lastChild.remove();
+}
+
+async function api(method, url, body, isForm) {
+  const headers = { 'X-User-Role': role };
+  let payload;
+  if (body && !isForm) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
+  else if (body) payload = body;
+  const t0 = performance.now();
+  const res = await fetch(url, { method, headers, body: payload });
+  const text = await res.text(); let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+  addLog(method, url, res.status, data, Math.round(performance.now() - t0));
+  if (!res.ok) throw new Error((data && data.message) || ('HTTP ' + res.status));
+  return data;
+}
+
+/* ---------- map ---------- */
+let map = null, layer = null, picker = null;
+const COLORS = { SUBMITTED: '#b45309', VALIDATED: '#15803d', REJECTED: '#b91c1c' };
+function initMap() {
+  if (!window.L) { $('#map').innerHTML = '<div class="empty">Map unavailable offline – enter coordinates manually.</div>'; return; }
+  map = L.map('map').setView([33.8815, 10.0982], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
+  layer = L.layerGroup().addTo(map);
+  map.on('click', e => setCoords(e.latlng.lat, e.latlng.lng));
+}
+function setCoords(lat, lng) {
+  $('#lat').value = (+lat).toFixed(5); $('#lng').value = (+lng).toFixed(5);
+  if (map) { if (picker) picker.remove(); picker = L.marker([lat, lng]).addTo(map); }
+}
+$('#geo').onclick = e => { e.preventDefault();
+  navigator.geolocation ? navigator.geolocation.getCurrentPosition(p => { setCoords(p.coords.latitude, p.coords.longitude); map && map.setView([p.coords.latitude, p.coords.longitude], 13); },
+    () => toast('Location denied', true)) : toast('Geolocation not supported', true); };
+
+/* ---------- data ---------- */
+async function loadStats() {
+  try { const s = await api('GET', '/api/reports/stats'); for (const k in s) { const el = $('#s-' + k); if (el) el.textContent = s[k]; } }
+  catch (e) { toast(e.message, true); }
+}
+async function loadReports() {
+  const q = new URLSearchParams();
+  if ($('#f-status').value) q.set('status', $('#f-status').value);
+  if ($('#f-cat').value) q.set('category', $('#f-cat').value);
+  try {
+    const reports = await api('GET', '/api/reports' + (q.toString() ? '?' + q : ''));
+    render(reports);
+  } catch (e) { toast(e.message, true); }
+}
+function render(reports) {
+  $('#count').textContent = reports.length + ' report(s)';
+  const admin = role === 'ADMIN';
+  $('#list').innerHTML = reports.length ? reports.map(r => `
+    <div class="report">
+      <div class="thumb">${r.photoUrl ? `<img src="${r.photoUrl}?t=${Date.now()}" data-full="${r.photoUrl}" alt="photo">` : 'no photo'}</div>
+      <div>
+        <h3>${esc(r.title)} <span class="badge ${r.status}">${r.status}</span> <span class="badge cat">${r.category}</span></h3>
+        <p>${esc(r.description)}</p>
+        <div class="meta">#${r.id} · ${esc(r.reporterName || 'anonymous')} · ${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)} · ${new Date(r.createdAt).toLocaleString()}</div>
+        ${r.adminComment ? `<div class="note">Admin: ${esc(r.adminComment)}</div>` : ''}
+        ${admin ? `<div class="actions">
+          ${r.status === 'SUBMITTED' ? `<button class="sm ok" data-act="validate" data-id="${r.id}">Validate</button><button class="sm bad" data-act="reject" data-id="${r.id}">Reject</button>` : ''}
+          <button class="sm ghost" data-act="delete" data-id="${r.id}">Delete</button></div>` : ''}
+      </div>
+    </div>`).join('') : '<div class="empty">No reports match.</div>';
+  if (layer) {
+    layer.clearLayers();
+    reports.forEach(r => L.circleMarker([r.latitude, r.longitude], { radius: 8, color: COLORS[r.status], fillColor: COLORS[r.status], fillOpacity: .7 })
+      .bindPopup(`<b>${esc(r.title)}</b><br>${r.status} · ${r.category}`).addTo(layer));
+  }
+}
+const refresh = () => { loadStats(); loadReports(); };
+
+$('#list').addEventListener('click', async e => {
+  const img = e.target.closest('img[data-full]');
+  if (img) { $('#lightbox img').src = img.dataset.full; $('#lightbox').style.display = 'flex'; return; }
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  try {
+    if (act === 'delete') { if (!confirm('Delete report #' + id + '?')) return; await api('DELETE', '/api/reports/' + id); toast('Report deleted'); }
+    else { const c = prompt('Comment (optional):'); if (c === null) return;
+           await api('PATCH', `/api/reports/${id}/${act}`, { comment: c || null }); toast('Report ' + act + 'd'); }
+    refresh();
+  } catch (err) { toast(err.message, true); }
+});
+$('#lightbox').onclick = () => $('#lightbox').style.display = 'none';
+
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const file = $('#photo').files[0];
+  if (file && file.size > 5 * 1024 * 1024) return toast('Photo is larger than 5 MB', true);
+  try {
+    const r = await api('POST', '/api/reports', {
+      title: $('#title').value, description: $('#description').value, category: $('#category').value,
+      latitude: parseFloat($('#lat').value), longitude: parseFloat($('#lng').value),
+      reporterName: $('#reporter').value || null });
+    if (file) { const fd = new FormData(); fd.append('file', file); await api('POST', `/api/reports/${r.id}/photo`, fd, true); }
+    toast('Report #' + r.id + ' submitted');
+    $('#title').value = ''; $('#description').value = ''; $('#photo').value = '';
+    refresh();
+  } catch (err) { toast(err.message, true); }
+});
+
+$('#role').onchange = e => { role = e.target.value; try { localStorage.setItem('role', role); } catch (x) {} toast('Now acting as ' + role); loadReports(); };
+$('#ping').onclick = async () => { try { const d = await api('GET', '/hello'); toast(d.message); } catch (e) { toast(e.message, true); } };
+$('#refresh').onclick = refresh; $('#f-status').onchange = loadReports; $('#f-cat').onchange = loadReports;
+
+initMap(); refresh();
+</script>
+</body>
+</html>

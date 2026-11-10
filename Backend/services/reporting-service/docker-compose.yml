@@ -1,0 +1,15 @@
+# PostgreSQL for the Reporting Service:  docker compose up -d
+services:
+  postgres:
+    image: postgres:16
+    container_name: nafas-reporting-db
+    environment:
+      POSTGRES_DB: nafas_reporting
+      POSTGRES_USER: nafas
+      POSTGRES_PASSWORD: nafas
+    ports:
+      - "5432:5432"
+    volumes:
+      - reporting-pgdata:/var/lib/postgresql/data
+volumes:
+  reporting-pgdata:
