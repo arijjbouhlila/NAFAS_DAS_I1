@@ -1,9 +1,0 @@
-server:
-  port: 8086
-spring:
-  application:
-    name: notification-service
-springdoc:
-  swagger-ui:
-    operations-sorter: method
-    tags-sorter: alpha
